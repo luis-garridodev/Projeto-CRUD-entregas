@@ -8,9 +8,9 @@ console.log(uuid)
 
 encomendasRoutes.post('/', async (req, res) => {
     
-    const { id, companie_id } = req.body;
+    const {user_id, companie_id } = req.body;
    
-
+const uidcode=uuid.v4();
     try {
         const verificacao = await connection('companies').select('id').where('id', companie_id).first();
 
@@ -21,8 +21,11 @@ encomendasRoutes.post('/', async (req, res) => {
         }
 
 
-        const insercaod = await connection('encomendas').insert({ id, companie_id,code:uuid.v4(),avaliable_at :new Date()});
+        const insercaod = await connection('encomendas').insert({ user_id, companie_id,code:uidcode,avaliable_at :new Date()});
         const buscacode=await connection('encomendas').select('code').where('id', insercaod)
+        console.log(uidcode);
+        console.log(buscacode)
+
 
         console.log(insercaod);
 
@@ -130,42 +133,94 @@ encomendasRoutes.delete('/delete/:id', async (req, res) => {
     }
 
 })
-encomendasRoutes.get('/semdisponibilidade/:companie_id', async (req, res) => {
+encomendasRoutes.get('/semdisponibilidade/:id', async (req, res) => {
     try {
-        const { companie_id } = req.params;
-        const verificacao = await connection('companies').select('id').where('id', companie_id).first()
-      
-        if (companie_id==null) {
-
+        const { id } = req.params;
+        
+        if (id==null) {
+           
             throw new MinhaExcessao(500, 'erro interno no servidor')
         }
-        const selecaod=await connection('encomendas').select('avaliable_at').where('id', companie_id).whereNull("avaliable_at")
-        
-            return res.status(204).json({ message: "data de entrega não disponivel", selecaod });
+        const selecaod=await connection('encomendas').select('avaliable_at').where('id', id)
+        console.log(selecaod)
+        if(selecaod.avaliable_at!=null){
+            return res.status(200).json({ message: "objeto disponivel", selecaod });
 
+        }
+        else{
+            return res.status(200).json({ message: "data de entrega não disponivel,crie uma solicitação!", selecaod }) 
+        }
+           
         
     } catch (error) {
         return res.status(error.status ? error.status : 500).send(error.message);
     }
 
 })
-encomendasRoutes.get('/entregapendente/:companie_id', async (req, res) => {
+encomendasRoutes.put('/criardisponibilidade/:id/:date', async (req, res) => {
     try {
-        const { companie_id } = req.params;
-        const verificacao = await connection('companies').select('id').where('id', companie_id).first()
+        const { id ,date} = req.params;
       
-        if (companie_id == null) {
+        const verificacao = await connection('encomendas').select('id').where('id', id).first()
+      
+        if (verificacao.length == 0) {
 
             throw new MinhaExcessao(500, 'erro interno no servidor')
         }
-        const selecaod=await connection('encomendas').select('delivered_at').where('id', companie_id)
-        if(selecaod.delivered_at==null){
-            return res.status(200).json({ message: "entrega pendente", insercaod });
-
+        if(new Date(date)>new Date()){
+            throw new MinhaExcessao(500, 'erro interno no servidor na parte de data')
         }
+        const insercaod = await connection('encomendas').update(({ avaliable_at :new Date(date)})).where("id",id);
+        console.log(insercaod)
+        return res.status(200).json({ message: "data de disponibilidade feita", insercaod });
     } catch (error) {
         return res.status(error.status ? error.status : 500).send(error.message);
     }
+})
+encomendasRoutes.put('/criardatadeentrega/:id/:date', async (req, res) => {
+    try {
+        const { id ,date} = req.params;
+      
+        const verificacao = await connection('encomendas').select('id').where('id', id).first()
+      
+        if (verificacao.length == 0) {
+
+            throw new MinhaExcessao(500, 'erro interno no servidor')
+        }
+        if(new Date(date)>new Date()){
+            throw new MinhaExcessao(500, 'erro interno no servidor na parte de data')
+        }
+        const insercaod = await connection('encomendas').update(({ delivered_at :new Date(date)})).where("id",id);
+        console.log(insercaod)
+        return res.status(200).json({ message: "data de disponibilidade feita", insercaod });
+    } catch (error) {
+        return res.status(error.status ? error.status : 500).send(error.message);
+    }
+})
+
+encomendasRoutes.get('/entregapendente/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        if (id==null) {
+
+            throw new MinhaExcessao(500, 'erro interno no servidor')
+        }
+        const selecaod=await connection('encomendas').select('delivered_at').where('id', id)
+        console.log(selecaod)
+        if(selecaod.delivered_at!=null){
+            return res.status(200).json({ message: "objeto disponivel", selecaod });
+
+        }
+        else{
+            return res.status(200).json({ message: "data de entrega não disponivel", selecaod }) 
+        }
+           
+        
+    } catch (error) {
+        return res.status(error.status ? error.status : 500).send(error.message);
+    }
+
 
 })
 function MinhaExcessao(status, message) {
